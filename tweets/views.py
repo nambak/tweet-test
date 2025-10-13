@@ -1,41 +1,67 @@
 from django.shortcuts import render
 from rest_framework.response import Response
+from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_204_NO_CONTENT
 from rest_framework.views import APIView
 
 from .models import Tweet
+from django.contrib.auth.models import User
 from .serializers import TweetSerializer
+from .serializers import UserSerializer
 
 
 def tweet_list(request):
-    """템플릿 렌더링용 view (기존 유지)"""
     tweets = Tweet.objects.all().order_by("-created_at")
     return render(request, "tweets/tweet_list.html", {"tweets": tweets})
 
 
-class TweetListAPIView(APIView):
-    """
-    트윗 목록 조회 및 생성 APIView
-    GET: 모든 트윗 목록 조회
-    """
-
+class TweetList(APIView):
     def get(self, request):
-        """모든 트윗 목록을 최신순으로 조회"""
         tweets = Tweet.objects.all().select_related("user").prefetch_related(
             "likes__user"
         ).order_by("-created_at")
         serializer = TweetSerializer(tweets, many=True)
         return Response(serializer.data)
+    def post(self, request):
+        serializer = TweetSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+        else:
+            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
+class TweetDetail(APIView):
+    def get(self, request, pk):
+        tweet = Tweet.objects.get(pk=pk)
+        serializer = TweetSerializer(tweet)
+        return Response(serializer.data)
+    def put(self, request, pk):
+        tweet = Tweet.objects.get(pk=pk)
+        serializer = TweetSerializer(tweet, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        else:
+            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
-class UserTweetsAPIView(APIView):
-    """
-    특정 사용자의 트윗 목록 조회 APIView
-    GET: 사용자의 모든 트윗 목록 조회
-    """
+    def delete(self, request, pk):
+        tweet = Tweet.objects.get(pk=pk)
+        tweet.delete()
+        return Response(status=HTTP_204_NO_CONTENT)
 
-    def get(self, request, user_id):
-        """특정 사용자의 트윗 목록 조회"""
-        tweets = Tweet.objects.filter(user_id=user_id).select_related(
+class UserList(APIView):
+    def get(self, request):
+        users = User.objects.all()
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
+
+class UserDetail(APIView):
+    def get(self, request, pk):
+        user = User.objects.get(pk=pk)
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+class UserTweets(APIView):
+    def get(self, request, pk):
+        tweets = Tweet.objects.filter(user_id=pk).select_related(
             "user"
         ).prefetch_related("likes__user").order_by("-created_at")
         serializer = TweetSerializer(tweets, many=True)

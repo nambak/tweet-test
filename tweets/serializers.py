@@ -31,3 +31,18 @@ class TweetSerializer(serializers.ModelSerializer):
 
     def get_likes_count(self, obj):
         return obj.likes.count()
+
+class PrivateUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        exclude = (
+            'password',
+            'is_superuser',
+            'id',
+            'is_staff',
+            'is_active',
+            'first_name',
+            'last_name',
+            'username',
+            'email',
+        )

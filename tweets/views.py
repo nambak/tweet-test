@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_204_NO_CONTENT, HTTP_200_OK
 from rest_framework.views import APIView
-from rest_framework.exceptions import ParseError
+from rest_framework.exceptions import ParseError, NotFound
 
 from .models import Tweet
 from django.contrib.auth.models import User
@@ -23,21 +23,28 @@ class TweetList(APIView):
             "likes__user"
         ).order_by("-created_at")
         serializer = TweetSerializer(tweets, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=HTTP_200_OK)
     def post(self, request):
         serializer = TweetSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(user=request.user)
+            return Response(serializer.data, status=HTTP_200_OK)
         else:
             return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 class TweetDetail(APIView):
     def get(self, request, pk):
-        tweet = Tweet.objects.get(pk=pk)
+        try:
+            tweet = Tweet.objects.get(pk=pk)
+        except Tweet.DoesNotExist:
+            raise NotFound
         serializer = TweetSerializer(tweet)
         return Response(serializer.data)
     def put(self, request, pk):
-        tweet = Tweet.objects.get(pk=pk)
+        try:
+            tweet = Tweet.objects.get(pk=pk)
+        except Tweet.DoesNotExist:
+            raise NotFound
         serializer = TweetSerializer(tweet, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -46,7 +53,10 @@ class TweetDetail(APIView):
             return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk):
-        tweet = Tweet.objects.get(pk=pk)
+        try:
+            tweet = Tweet.objects.get(pk=pk)
+        except Tweet.DoesNotExist:
+            raise NotFound
         tweet.delete()
         return Response(status=HTTP_204_NO_CONTENT)
 
